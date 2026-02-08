@@ -2,6 +2,12 @@ eck-elasticsearch:
   # Cluster name = Kubernetes Elasticsearch resource name. Change this to rename the cluster.
   fullnameOverride: "hackathon"
 
+  # Expose Elasticsearch HTTP via LoadBalancer so external clients (e.g. data generator) can reach it.
+  http:
+    service:
+      spec:
+        type: LoadBalancer
+
   nodeSets:
   - name: default
     count: 2

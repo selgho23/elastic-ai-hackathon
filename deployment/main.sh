@@ -21,9 +21,9 @@ ELASTICSEARCH_CLUSTER_NAME="${ELASTICSEARCH_CLUSTER_NAME:-hackathon}"
 # Kibana resource name (service is ${KIBANA_NAME}-kb-http); match eck-kibana fullnameOverride
 KIBANA_NAME="${KIBANA_NAME:-hackathon}"
 
-# Operations included in --all / "Run all" (teardown is excluded)
-RUN_ALL_OPS=(namespace context helm-repo eck-operator elasticsearch kibana kibana-access)
-AVAILABLE_OPERATIONS=("${RUN_ALL_OPS[@]}" teardown)
+# Operations included in --all / "Run all" (teardown and elk-access are excluded)
+RUN_ALL_OPS=(namespace context helm-repo eck-operator elasticsearch kibana)
+AVAILABLE_OPERATIONS=("${RUN_ALL_OPS[@]}" elk-access teardown)
 
 # -----------------------------------------------------------------------------
 # Main
@@ -109,15 +109,17 @@ install_kibana() {
     --set eck-elasticsearch.enabled=false
 }
 
-show_kibana_access() {
+show_elk_access() {
   local password
   password=$(kubectl get secret "${ELASTICSEARCH_CLUSTER_NAME}-es-elastic-user" -n elastic -o json | jq -r .data.elastic | base64 -d)
-  local lb
-  lb=$(kubectl get svc "${KIBANA_NAME}-kb-http" -n elastic -o json | jq -r '.status.loadBalancer.ingress[0].ip // .status.loadBalancer.ingress[0].hostname // empty')
-  local url="https://${lb}:5601"
+  local kibana_lb
+  kibana_lb=$(kubectl get svc "${KIBANA_NAME}-kb-http" -n elastic -o json | jq -r '.status.loadBalancer.ingress[0].ip // .status.loadBalancer.ingress[0].hostname // empty')
+  local es_lb
+  es_lb=$(kubectl get svc "${ELASTICSEARCH_CLUSTER_NAME}-es-http" -n elastic -o json | jq -r '.status.loadBalancer.ingress[0].ip // .status.loadBalancer.ingress[0].hostname // empty')
   echo ""
-  echo "--- Kibana access (LoadBalancer) ---"
-  echo "  URL:      ${url}"
+  echo "--- ELK access (LoadBalancer) ---"
+  echo "  Elasticsearch URL:  https://${es_lb}:9200"
+  echo "  Kibana URL:         https://${kibana_lb}:5601"
   echo "  Username: elastic"
   echo "  Password: ${password}"
   echo ""
@@ -176,7 +178,7 @@ show_usage() {
   echo ""
   echo "Available operations: ${AVAILABLE_OPERATIONS[*]}"
   echo ""
-  echo "  --all   Run all operations (excludes teardown)"
+  echo "  --all   Run all operations (excludes teardown and kibana-access)"
   echo "  --list  List available operations and exit"
   echo ""
   echo "  No arguments: interactive menu to choose operations"
@@ -191,7 +193,7 @@ run_operation() {
     eck-operator) install_eck_operator ;;
     elasticsearch) install_elasticsearch ;;
     kibana) install_kibana ;;
-    kibana-access) show_kibana_access ;;
+    elk-access) show_elk_access ;;
     teardown) teardown ;;
     *)
       echo "Unknown operation: $op" >&2
