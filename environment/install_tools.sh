@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Dev tools installer - modular script for installing development tools on Linux
-# Supports: docker (more tools can be added)
+# Supports: docker, k3s, helm, jq (more tools can be added)
 # Usage: sudo ./install-docker.sh [tool1] [tool2] ... | --all | --list
 #        ./install-docker.sh (no args = interactive menu)
 #
@@ -11,7 +11,7 @@ set -e
 # Configuration
 # -----------------------------------------------------------------------------
 
-AVAILABLE_TOOLS=(docker)
+AVAILABLE_TOOLS=(docker k3s helm jq)
 
 # -----------------------------------------------------------------------------
 # Main
@@ -128,9 +128,54 @@ EOF
     echo "Docker Engine installed: $(docker --version)"
 }
 
+install_k3s() {
+    echo ""
+    echo "==> Installing NVIDIA Container Toolkit..."
+    curl -fsSL https://nvidia.github.io/libnvidia-container/gpgkey | gpg --dearmor -o /usr/share/keyrings/nvidia-container-toolkit-keyring.gpg
+    local arch
+    arch=$(dpkg --print-architecture)
+    curl -s -L https://nvidia.github.io/libnvidia-container/stable/deb/nvidia-container-toolkit.list | \
+        sed "s#deb https://#deb [signed-by=/usr/share/keyrings/nvidia-container-toolkit-keyring.gpg] https://#g; s#\$(ARCH)#${arch}#g" | \
+        tee /etc/apt/sources.list.d/nvidia-container-toolkit.list > /dev/null
+    apt-get update
+    apt-get install -y nvidia-container-toolkit
+
+    echo "==> Installing k3s..."
+    curl -sfL https://get.k3s.io | sh -
+    systemctl restart k3s 2>/dev/null || systemctl restart k3s-agent 2>/dev/null || true
+
+    echo "==> Installing NVIDIA device plugin..."
+    local i=0
+    while ! k3s kubectl get nodes &>/dev/null && [[ $i -lt 30 ]]; do
+        sleep 2
+        ((i++))
+    done
+    if k3s kubectl get nodes &>/dev/null; then
+        k3s kubectl apply -f https://raw.githubusercontent.com/NVIDIA/k8s-device-plugin/v0.14.0/nvidia-device-plugin.yml
+        k3s kubectl patch daemonset nvidia-device-plugin-daemonset -n kube-system -p '{"spec":{"template":{"spec":{"runtimeClassName":"nvidia"}}}}' 2>/dev/null || true
+    fi
+
+    echo ""
+    echo "k3s installed. Kubeconfig: /etc/rancher/k3s/k3s.yaml"
+    echo "Verify GPU: kubectl get nodes -o yaml | grep nvidia.com/gpu"
+}
+
+install_helm() {
+    echo ""
+    echo "==> Installing Helm..."
+    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+    echo "Helm installed: $(helm version --short)"
+}
+
+install_jq() {
+    echo ""
+    echo "==> Installing jq..."
+    apt-get install -y jq
+    echo "jq installed: $(jq --version)"
+}
+
 # Placeholder for future tools - add install_<toolname> and add to AVAILABLE_TOOLS
 # install_kubectl() { ... }
-# install_helm() { ... }
 # install_terraform() { ... }
 
 interactive_menu() {
@@ -179,6 +224,9 @@ run_installer() {
     local tool="$1"
     case "$tool" in
         docker) install_docker ;;
+        k3s) install_k3s ;;
+        helm) install_helm ;;
+        jq) install_jq ;;
         *)
             echo "Unknown tool: $tool" >&2
             return 1

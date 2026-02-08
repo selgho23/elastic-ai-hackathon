@@ -1,0 +1,27 @@
+# Values for standalone elastic/eck-kibana chart (root-level keys; no eck-kibana wrapper).
+# Kibana resource name. Change this to rename the Kibana deployment (services, pods, etc.).
+fullnameOverride: "hackathon"
+
+count: 1
+
+# Reference to ECK-managed Elasticsearch (must match eck-elasticsearch fullnameOverride).
+elasticsearchRef:
+  name: hackathon
+  namespace: elastic
+
+http:
+  service:
+    spec:
+      # LoadBalancer: on K3s gets an external IP; use http://<EXTERNAL-IP>:5601
+      type: LoadBalancer
+      # Alternative: NodePort for http://<node-ip>:<nodePort> (kubectl get svc -n elastic to see port)
+      # type: NodePort
+      # ports:
+      # - name: http
+      #   port: 5601
+      #   nodePort: 30601
+  # tls:
+  #   selfSignedCertificate:
+  #     subjectAltNames:
+  #     - ip: 1.2.3.4
+  #     - dns: kibana.example.com
