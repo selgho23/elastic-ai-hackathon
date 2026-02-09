@@ -178,7 +178,7 @@ show_usage() {
   echo ""
   echo "Available operations: ${AVAILABLE_OPERATIONS[*]}"
   echo ""
-  echo "  --all   Run all operations (excludes teardown and kibana-access)"
+  echo "  --all   Run all operations (excludes teardown and elk-access)"
   echo "  --list  List available operations and exit"
   echo ""
   echo "  No arguments: interactive menu to choose operations"
