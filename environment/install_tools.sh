@@ -14,7 +14,6 @@ set -e
 AVAILABLE_TOOLS=(docker k3s helm jq python)
 
 # Python 3.12 from source: install prefix
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PYTHON_PREFIX="/opt/python"
 PYTHON_VERSION="3.12.12"
 PYTHON_LINK_DIR="/usr/local/bin"  # symlinks here so python/pip are on PATH
