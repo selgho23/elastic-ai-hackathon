@@ -11,7 +11,12 @@ set -e
 # Configuration
 # -----------------------------------------------------------------------------
 
-AVAILABLE_TOOLS=(docker k3s helm jq)
+AVAILABLE_TOOLS=(docker k3s helm jq python)
+
+# Python 3.12 from source: install prefix
+PYTHON_PREFIX="/opt/python"
+PYTHON_VERSION="3.12.12"
+PYTHON_LINK_DIR="/usr/local/bin"  # symlinks here so python/pip are on PATH
 
 # -----------------------------------------------------------------------------
 # Main
@@ -174,6 +179,45 @@ install_jq() {
     echo "jq installed: $(jq --version)"
 }
 
+install_python() {
+    echo ""
+    echo "==> Installing Python ${PYTHON_VERSION} from source into ${PYTHON_PREFIX}..."
+    apt-get install -y build-essential zlib1g-dev libncurses5-dev libgdbm-dev \
+        libnss3-dev libssl-dev libreadline-dev libffi-dev libsqlite3-dev \
+        wget xz-utils libbz2-dev libgdbm-compat-dev liblzma-dev
+
+    local tarball="Python-${PYTHON_VERSION}.tar.xz"
+    local url="https://www.python.org/ftp/python/${PYTHON_VERSION}/${tarball}"
+    local tmpdir
+    tmpdir=$(mktemp -d)
+    trap "rm -rf ${tmpdir}" RETURN
+
+    echo "==> Downloading ${url}..."
+    curl -fsSL -o "${tmpdir}/${tarball}" "$url"
+    echo "==> Extracting..."
+    tar -xJf "${tmpdir}/${tarball}" -C "${tmpdir}"
+    local srcdir="${tmpdir}/Python-${PYTHON_VERSION}"
+
+    (
+        cd "${srcdir}"
+        echo "==> Configuring (prefix=${PYTHON_PREFIX})..."
+        ./configure --prefix="${PYTHON_PREFIX}" --enable-optimizations
+        echo "==> Building (this may take several minutes)..."
+        make -j"$(nproc)"
+        echo "==> Installing..."
+        make altinstall
+    )
+
+    echo "==> Adding symlinks to ${PYTHON_LINK_DIR} (on PATH)..."
+    ln -sf "${PYTHON_PREFIX}/bin/python3.12" "${PYTHON_LINK_DIR}/python"
+    ln -sf "${PYTHON_PREFIX}/bin/pip3.12" "${PYTHON_LINK_DIR}/pip"
+
+    echo ""
+    echo "Python ${PYTHON_VERSION} installed to ${PYTHON_PREFIX}"
+    echo "  Symlinks: ${PYTHON_LINK_DIR}/python, ${PYTHON_LINK_DIR}/pip"
+    python --version
+}
+
 # Placeholder for future tools - add install_<toolname> and add to AVAILABLE_TOOLS
 # install_kubectl() { ... }
 # install_terraform() { ... }
@@ -227,6 +271,7 @@ run_installer() {
         k3s) install_k3s ;;
         helm) install_helm ;;
         jq) install_jq ;;
+        python) install_python ;;
         *)
             echo "Unknown tool: $tool" >&2
             return 1
