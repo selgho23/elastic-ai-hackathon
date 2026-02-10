@@ -11,7 +11,7 @@ set -e
 # Configuration
 # -----------------------------------------------------------------------------
 
-AVAILABLE_TOOLS=(docker k3s helm jq python)
+AVAILABLE_TOOLS=(docker k3s helm jq python nodejs claude-code)
 
 # Python 3.12 from source: install prefix
 PYTHON_PREFIX="/opt/python"
@@ -179,6 +179,31 @@ install_jq() {
     echo "jq installed: $(jq --version)"
 }
 
+install_nodejs() {
+    echo ""
+    echo "==> Installing Node.js and npm (NodeSource 20.x LTS)..."
+    local nodesetup="/tmp/nodesource_setup.sh"
+    curl -fsSL https://deb.nodesource.com/setup_20.x -o "$nodesetup"
+    bash "$nodesetup"
+    rm -f "$nodesetup"
+    apt-get install -y nodejs
+    echo ""
+    echo "Node.js installed: $(node --version)"
+    echo "npm installed: $(npm --version)"
+}
+
+install_claude_code() {
+    echo ""
+    echo "==> Installing Claude Code globally via npm..."
+    if ! command -v npm &>/dev/null; then
+        echo "Node.js/npm required. Install with: $0 nodejs" >&2
+        return 1
+    fi
+    npm install -g @anthropic-ai/claude-code
+    echo ""
+    echo "Claude Code installed (global npm). Run 'claude' from a project directory."
+}
+
 install_python() {
     echo ""
     echo "==> Installing Python ${PYTHON_VERSION} from source into ${PYTHON_PREFIX}..."
@@ -271,6 +296,8 @@ run_installer() {
         k3s) install_k3s ;;
         helm) install_helm ;;
         jq) install_jq ;;
+        nodejs) install_nodejs ;;
+        claude-code) install_claude_code ;;
         python) install_python ;;
         *)
             echo "Unknown tool: $tool" >&2
