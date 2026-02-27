@@ -1,0 +1,86 @@
+# RBAC resources for Elastic Agent Kubernetes monitoring.
+# The agent needs broad read access to cluster resources to collect metrics, logs, and events.
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: elastic-agent
+  namespace: elastic
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: elastic-agent-k8s-monitoring
+rules:
+- apiGroups: [""]
+  resources:
+  - pods
+  - nodes
+  - namespaces
+  - events
+  - services
+  - configmaps
+  - persistentvolumes
+  - persistentvolumeclaims
+  - replicationcontrollers
+  - resourcequotas
+  - limitranges
+  - endpoints
+  - componentstatuses
+  verbs: ["get", "list", "watch"]
+- apiGroups: [""]
+  resources:
+  - nodes/metrics
+  - nodes/stats
+  - nodes/proxy
+  verbs: ["get"]
+- apiGroups: ["apps"]
+  resources:
+  - daemonsets
+  - deployments
+  - replicasets
+  - statefulsets
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources:
+  - jobs
+  - cronjobs
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["coordination.k8s.io"]
+  resources:
+  - leases
+  verbs: ["get", "create", "update"]
+- apiGroups: ["storage.k8s.io"]
+  resources:
+  - storageclasses
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources:
+  - ingresses
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["policy"]
+  resources:
+  - podsecuritypolicies
+  verbs: ["get", "list", "watch"]
+- nonResourceURLs:
+  - /metrics
+  - /healthz
+  - /healthz/*
+  - /livez
+  - /livez/*
+  - /readyz
+  - /readyz/*
+  verbs: ["get"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: elastic-agent-k8s-monitoring
+subjects:
+- kind: ServiceAccount
+  name: elastic-agent
+  namespace: elastic
+roleRef:
+  kind: ClusterRole
+  name: elastic-agent-k8s-monitoring
+  apiGroup: rbac.authorization.k8s.io
